@@ -129,7 +129,7 @@ if __name__ == '__main__':
     argc = len(argvs)  # 引数の個数
 
     if argc != 4:
-        print('Usage: \n python makeDocTable.py "Database Connecting String" "Table Nane" "Made Flag String"')
+        print('Usage: \n python makeDocTable.py "Database Connecting String" "Table Name" "Made Flag String"')
         print('E.g: \n python makeDocTable.py "postgresql://postgres:postgres@localhost:25432/dskacc" "spec_file" "2024.02.13"')
         exit(1)
     # fi

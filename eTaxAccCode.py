@@ -19,22 +19,86 @@ import sys
 import traceback
 from openpyxl import load_workbook, Workbook
 
+
+#=
+# 勘定科目コード表の説明
+#   （参考）１　EDINETとは、金融庁ホームページにおいて提供されている「金融商品取引法に基づく有価証券報告書等の開示書類に関する電子開示システム」である。									
+#  　　　　 ２  上記にある各項目は、次のとおり引用又は当庁にて作成している。
+# 　　　　  　　〔No.1～15〕　：　「2019年版EDINETタクソノミ対応『勘定科目リスト』」(EDINET閲覧サイト)を引用（注）
+# 　　　　  　　〔No.0、16～18〕　：　「2019年版EDINETタクソノミ対応『勘定科目リスト』」(EDINET閲覧サイト)を基に当庁が作成
+# 　　　　  　　〔No.19～22〕　：　新規作成設定
+# 　　　  　　　（注）損益計算書の一部の勘定科目は、「No.12　period Type」を変更していますのでご留意ください。							
+# 　　  　　３　〔No.6～14〕は「勘定科目コード表」では「非表示」設定にしていますので、閲覧される際は「再表示」にしてください。									
+#=								
 Field_Dict = {  # Row 2 : Row 3 ⇒ DB Field Name
-    '0': {'name': 'industry',            'desc': '業種'},  # Industry
-    "1": {'name': 'classification',      'desc': '科目分類'}, # Subject classification
-    "2": {'name': 'std_label_ja',        'desc': '標準ラベル（日本語）'}, # Standard label (Japanese)
-    "3": {'name': 'ret_label_ja',        'desc': '冗長ラベル（日本語）'}, # Redundant label (Japanese)
-    "4": {'name': 'std_label_en',        'desc': '標準ラベル（英語）'}, # Standard label (English)
-    "5": {'name': 'ret_label_en',        'desc': '冗長ラベル（英語）'}, # Redundant label (English)
-    "15": {'name': 'depth',               'desc': 'depth'},  # depth
-    "16": {'name': 'title_item',          'desc': 'タイトル項目'},  # Title item
-    "17": {'name': 'total_usage_cate',    'desc': '合計（用途区分）'}, # Total (usage category)
-    "18": {'name': 'account_category',    'desc': '勘定科目区分'},  # Account category
-    "19": {'name': 'ac_cate_code',        'desc': '勘定科目コード'}, # Account category code
-    "20": {'name': 'etax_acc_ja',         'desc': 'e-Tax対応勘定科目（日本語）'}, # e-Tax compatible accounts (Japanese)
-    "21": {'name': 'etax_acc_en',         'desc': 'e-Tax対応勘定科目（英語）'}, # e-Tax compatible account (English)
-    "22": {'name': 'etax_acc_cate',       'desc': 'e-Tax勘定科目区分'}, # e-tax account category
+    '0': {'name': 'industry',            'desc': '業種',                        'desc_en': 'Industry',                              "long_desc": "EDINETで設定されている業種目（23業種）を表示しています。"},
+    "1": {'name': 'classification',      'desc': '科目分類',                    'desc_en': 'Classification',                        "long_desc": "財務諸表本表タクソノミに設定されている勘定科目の科目分類です。"},
+    "2": {'name': 'std_label_ja',        'desc': '標準ラベル（日本語）',        'desc_en': 'Standard label (Japanese)',             "long_desc": "勘定科目の階層構造を標準ラベル（日本語）を用いて表しています。"},
+    "3": {'name': 'ret_label_ja',        'desc': '冗長ラベル（日本語）',        'desc_en': 'Redundant label (Japanese)',            "long_desc": "勘定科目の冗長ラベル（日本語）です。"},
+    "4": {'name': 'std_label_en',        'desc': '標準ラベル（英語）',          'desc_en': 'Standard label (English)',              "long_desc": "勘定科目の標準ラベル（英語）です。"},
+    "5": {'name': 'ret_label_en',        'desc': '冗長ラベル（英語）',          'desc_en': 'Redundant label (English)',             "long_desc": "勘定科目の冗長ラベル（英語）です。"},
+    "6": {'name': 'total_usage_cate_ja', 'desc': '用途区分（日本語）',          'desc_en': 'Usage category (Japanese)',             "long_desc": "勘定科目の用途区分、財務諸表区分及び業種区分のラベル（日本語）です。"},
+    "7": {'name': 'total_usage_cate_en', 'desc': '用途区分（英語）',            'desc_en': 'Usage category (English)',              "long_desc": "勘定科目の用途区分、財務諸表区分及び業種区分のラベル（英語）です。"},
+    "8": {'name': 'namespace_prefix',    'desc': '名前空間プレフィックス',      'desc_en': 'Namespace prefix',                      "long_desc": "勘定科目の名前空間プレフィックスです。"},
+    "9": {'name': 'element_name',        'desc': '要素名',                      'desc_en': 'Element name',                          "long_desc": "勘定科目の要素名です。"},
+    "10": {'name': 'type',               'desc': 'データ型',                    'desc_en': 'Data type',                             "long_desc": "勘定科目のデータ型（type属性）です。"},
+    "11": {'name': 'substitution_group', 'desc': '代替グループ',                'desc_en': 'Substitution group',                    "long_desc": "勘定科目の代替グループ(substitutionGroup属性)です。"},
+    "12": {'name': 'period_type',        'desc': '期間時点区分',                'desc_en': 'Period type',                           "long_desc": "勘定科目の期間時点区分（periodType属性）です。"},
+    "13": {'name': 'balance',            'desc': '貸借区分',                    'desc_en': 'Balance',                               "long_desc": "勘定科目の貸借区分(balance属性)です。"},
+    "14": {'name': 'abstract',           'desc': '抽象区分',                    'desc_en': 'Abstract',                              "long_desc": "勘定科目の抽象区分(abstract属性)です。"},
+    "15": {'name': 'depth',               'desc': 'depth',                      'desc_en': 'Depth',                                 "long_desc": "勘定科目の科目一覧ツリー又はグローバルディメンションにおける階層情報です。"},
+    "16": {'name': 'title_item',          'desc': 'タイトル項目',               'desc_en': 'Title item',                            "long_desc": "EDINETの勘定科目リストで冗長ラベルがタイトル項目である勘定科目には「○」で表示。"},
+    "17": {'name': 'total_usage_cate',    'desc': '合計（用途区分）',           'desc_en': 'Total (usage category)',                "long_desc": "EDINETの勘定科目リストで用途区分が合計と使用できる勘定科目には「○」で表示。"},
+    "18": {'name': 'account_category',    'desc': '勘定科目区分',               'desc_en': 'Account category',                      "long_desc": "EDINETの勘定科目リストで使用されている勘定科目を財務諸表規則に基づき区分したもの。"},
+    "19": {'name': 'ac_cate_code',        'desc': '勘定科目コード',             'desc_en': 'Account category code',                 "long_desc": "貸借対照表のCSV形式データを作成するのに使用する勘定科目コードです。"},
+    "20": {'name': 'etax_acc_ja',         'desc': 'e-Tax対応勘定科目（日本語）', 'desc_en': 'e-Tax compatible account (Japanese)',  "long_desc": "EDINETの勘定科目リストで使用されている勘定科目及び勘定科目コードに対応する公表用e-Tax勘定科目（日本語）"},
+    "21": {'name': 'etax_acc_en',         'desc': 'e-Tax対応勘定科目（英語）',  'desc_en': 'e-Tax compatible account (English)',    "long_desc": "EDINETの勘定科目リストで使用されている勘定科目及び勘定科目コードに対応する公表用のe-Tax勘定科目（英語）"},
+    "22": {'name': 'etax_acc_cate',       'desc': 'e-Tax勘定科目区分',          'desc_en': 'e-Tax account category',                "long_desc": "e-Taxの勘定科目を財務諸表規則に基づき区分したもの。"},
 }
+
+
+def findSpecFile(db, name, variation, version):
+    #=
+    # DB Table spec_file からファイル名等を取得する 
+    #=
+    # pdb.set_trace()
+    tbl_spec_file = db['spec_file']
+    spec_file = tbl_spec_file.find_one(name = name, variation = variation, version = version)
+    assert(spec_file is not None)
+    pprint.pprint(spec_file)
+    return spec_file
+
+
+def makeDocEntryTable(db, name, variation, version, tableName, madeFlag):
+    # = +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=
+    # Field_Dict を Doc Entry DB Table に upsert
+    #
+    # = +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=
+    # pdb.set_trace()
+
+    spec_file = findSpecFile(db, name, variation, version)
+    
+    # データベース周りの準備
+    table = db[tableName]
+
+    # レコードをDB Tableに保存
+    for k, v in Field_Dict.items():
+        data = { "spec_name" : spec_file["name"] }  # Key Field 1
+        assert(v["name"] == v["name"].lower())
+        data["name"] = v["name"]                    # Key Field 2
+        data["desc"] = v["desc"]
+        data["desc_en"] = v["desc_en"]
+        data["long_desc"] = v["long_desc"]
+        data["made_flag"] = madeFlag    # 今回作成・修正に示すフラグ
+
+        pprint.pprint(data)
+
+        table.upsert(data, keys=[
+            'spec_name', 'name'
+        ])
+    # rof
+
+    print("makeDocEntryTable done")
 
 
 def readXlsToTable(db, name, variation, version, tableName, madeFlag):
@@ -43,12 +107,8 @@ def readXlsToTable(db, name, variation, version, tableName, madeFlag):
     #   ※ ローカルファイルが存在しない場合は自動的ダウンロードする
     # = +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=
     # pdb.set_trace()
-
-    # DB Table spec_file からファイル名等を取得する
-    tbl_spec_file = db['spec_file']
-    spec_file = tbl_spec_file.find_one(name = name, variation = variation, version = version)
-    assert(spec_file is not None)
-    pprint.pprint(spec_file)
+    
+    spec_file = findSpecFile(db, name, variation, version)
     
     localfile = spec_file['localfile']
     sheetName = spec_file['sheet']
@@ -127,7 +187,11 @@ def readXlsToTable(db, name, variation, version, tableName, madeFlag):
         # Field_Dict を適用し、DB 登録用レコードを作る
         data = {}
         for key in Field_Dict:
-            data[Field_Dict[key]['name']] = record[key]
+            if key in [ "16", "17" ]:
+                data[Field_Dict[key]['name']] = record[key] is not None and record[key].strip() == "○"
+            else:
+                data[Field_Dict[key]['name']] = record[key]
+            # fi
         # for
 
         data["jis_code"] = ""           # 【ペンディング】jis-code table へのリンク ※検討中だが、とりあえず空欄を作っておく
@@ -148,7 +212,7 @@ def readXlsToTable(db, name, variation, version, tableName, madeFlag):
         ])
     # rof
 
-    print("done")
+    print("readXlsToTable done")
 
 
 if __name__ == '__main__':
@@ -157,7 +221,7 @@ if __name__ == '__main__':
     argc = len(argvs)  # 引数の個数
 
     if argc != 7:
-        print('Usage: \n python eTaxAccCode.py "doc_file.name" "doc_file.variation" "doc_file.version" "Database Connecting String" "Table Nane" "Made Flag String"')
+        print('Usage: \n python eTaxAccCode.py "doc_file.name" "doc_file.variation" "doc_file.version" "Database Connecting String" "Table Name" "Made Flag String"')
         print('Usage: \n python eTaxAccCode.py "bs.acc-cate-code.etax.acc" "all" "2019" "postgresql://postgres:postgres@localhost:25432/dskacc" "etax_account" "2014.02.13"')
         exit(1)
     # fi
@@ -178,6 +242,7 @@ if __name__ == '__main__':
     # yrt
 
     try:
+        makeDocEntryTable(db, name, variation, version, 'doc_entry', madeFlag)
         readXlsToTable(db, name, variation, version, tableName, madeFlag)
     except Exception as e:
         traceback.print_exc()

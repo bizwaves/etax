@@ -4,7 +4,7 @@
 # @file: eTaxAccCode.py
 # @require: pip install openpyxl dataset requests
 # @usage: eTaxAccCode.ps1 参照。（ご準備：Download Url 等は Table spec_file に登録済 ※ makeDocTable.py 参考）
-# @version: 0.0.2, 2024.02.15
+# @version: 0.0.3, 2024.02.15
 # @author: H. Nakano, nakano-h@bitwaves.org
 # @url: https://www.bitwaves.org/
 ###
@@ -20,6 +20,8 @@ import traceback
 from openpyxl import load_workbook, Workbook
 
 from makeIndustryTable import Record_List as Industry_List
+from makeAccCateTable import Acc_Cate_List as Acc_Cate_List
+from makeAccCateTable import Etax_Acc_Cate_List as Etax_Acc_Cate_List
 
 #=
 # 勘定科目コード表の説明
@@ -214,6 +216,54 @@ def readXlsToTable(db, name, variation, version, tableName, madeFlag):
                 assert(industry_code is not None)
                 
                 data[Field_Dict[key]['name']] = industry_code
+            elif key in [ "18" ]:
+                #= ↓ Acc_Cate_List から acc_cate_code を取得して登録する
+                # Acc_Cate_List = [ { "code" : "C3",   "name" : "新株予約権" }, ... ]
+                #=
+                assert(record[key] is not None)
+                name = record[key].strip()
+                
+                name = name.replace("（", "(").replace("）", ")") # 全角括弧を半角括弧に変換: "新株予約権（新株予約権）" ⇒ "新株予約権(新株予約権)" に統一する
+                
+                code = None
+                for acc_cate in Acc_Cate_List:
+                    if acc_cate["name"] == name:
+                        code = acc_cate["code"]
+                        break
+                    # fi
+                # rof
+                
+                if code is None:
+                    print(f"Error: acc_cate_code not found for {name}")
+                    exit(1)
+                #fi
+                assert(code is not None)
+                
+                data[Field_Dict[key]['name']] = code
+            elif key in [ "22" ]:
+                #= ↓ Etax_Acc_Cate_List から etax_acc_cate_code を取得して登録する
+                # Etax_Acc_Cate_List = [ { "code" : "J1",   "name" : "その他" }, ... ]
+                #=
+                assert(record[key] is not None)
+                name = record[key].strip()
+                
+                name = name.replace("（", "(").replace("）", ")") # 全角括弧を半角括弧に変換: "その他（その他）" ⇒ "その他(その他)" に統一する
+                
+                code = None
+                for etax_acc_cate in Etax_Acc_Cate_List:
+                    if etax_acc_cate["name"] == name:
+                        code = etax_acc_cate["code"]
+                        break
+                    # fi
+                # rof
+                
+                if code is None:
+                    print(f"Error: etax_acc_cate_code not found for {name}")
+                    exit(1)
+                #fi
+                assert(code is not None)
+                
+                data[Field_Dict[key]['name']] = code
             elif key in [ "15" ]:  # depth, int
                 assert(record[key] is not None)
                 assert(type(record[key]) == int)

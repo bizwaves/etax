@@ -3,7 +3,7 @@
 ###
 # @file: makeIndustryTable.py
 # @require: pip install openpyxl dataset
-# @version: 0.0.1, 2024.02.14
+# @version: 0.0.2, 2024.02.15
 # @author: H. Nakano nakano-h@bitwaves.org
 # @url: https://www.bitwaves.org/
 ###

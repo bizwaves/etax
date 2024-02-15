@@ -4,7 +4,7 @@
 # @file: eTaxAccCode.py
 # @require: pip install openpyxl dataset requests
 # @usage: eTaxAccCode.ps1 参照。（ご準備：Download Url 等は Table spec_file に登録済 ※ makeDocTable.py 参考）
-# @version: 0.0.1, 2024.02.13
+# @version: 0.0.2, 2024.02.15
 # @author: H. Nakano, nakano-h@bitwaves.org
 # @url: https://www.bitwaves.org/
 ###
@@ -19,6 +19,7 @@ import sys
 import traceback
 from openpyxl import load_workbook, Workbook
 
+from makeIndustryTable import Record_List as Industry_List
 
 #=
 # 勘定科目コード表の説明
@@ -37,8 +38,8 @@ Field_Dict = {  # Row 2 : Row 3 ⇒ DB Field Name
     "3": {'name': 'ret_label_ja',        'desc': '冗長ラベル（日本語）',        'desc_en': 'Redundant label (Japanese)',            "long_desc": "勘定科目の冗長ラベル（日本語）です。"},
     "4": {'name': 'std_label_en',        'desc': '標準ラベル（英語）',          'desc_en': 'Standard label (English)',              "long_desc": "勘定科目の標準ラベル（英語）です。"},
     "5": {'name': 'ret_label_en',        'desc': '冗長ラベル（英語）',          'desc_en': 'Redundant label (English)',             "long_desc": "勘定科目の冗長ラベル（英語）です。"},
-    "6": {'name': 'total_usage_cate_ja', 'desc': '用途区分（日本語）',          'desc_en': 'Usage category (Japanese)',             "long_desc": "勘定科目の用途区分、財務諸表区分及び業種区分のラベル（日本語）です。"},
-    "7": {'name': 'total_usage_cate_en', 'desc': '用途区分（英語）',            'desc_en': 'Usage category (English)',              "long_desc": "勘定科目の用途区分、財務諸表区分及び業種区分のラベル（英語）です。"},
+    "6": {'name': 'usage_cate_ja',       'desc': '用途区分（日本語）',          'desc_en': 'Usage category (Japanese)',             "long_desc": "勘定科目の用途区分、財務諸表区分及び業種区分のラベル（日本語）です。"},
+    "7": {'name': 'usage_cate_en',       'desc': '用途区分（英語）',            'desc_en': 'Usage category (English)',              "long_desc": "勘定科目の用途区分、財務諸表区分及び業種区分のラベル（英語）です。"},
     "8": {'name': 'namespace_prefix',    'desc': '名前空間プレフィックス',      'desc_en': 'Namespace prefix',                      "long_desc": "勘定科目の名前空間プレフィックスです。"},
     "9": {'name': 'element_name',        'desc': '要素名',                      'desc_en': 'Element name',                          "long_desc": "勘定科目の要素名です。"},
     "10": {'name': 'type',               'desc': 'データ型',                    'desc_en': 'Data type',                             "long_desc": "勘定科目のデータ型（type属性）です。"},
@@ -49,8 +50,8 @@ Field_Dict = {  # Row 2 : Row 3 ⇒ DB Field Name
     "15": {'name': 'depth',               'desc': 'depth',                      'desc_en': 'Depth',                                 "long_desc": "勘定科目の科目一覧ツリー又はグローバルディメンションにおける階層情報です。"},
     "16": {'name': 'title_item',          'desc': 'タイトル項目',               'desc_en': 'Title item',                            "long_desc": "EDINETの勘定科目リストで冗長ラベルがタイトル項目である勘定科目には「○」で表示。"},
     "17": {'name': 'total_usage_cate',    'desc': '合計（用途区分）',           'desc_en': 'Total (usage category)',                "long_desc": "EDINETの勘定科目リストで用途区分が合計と使用できる勘定科目には「○」で表示。"},
-    "18": {'name': 'account_category',    'desc': '勘定科目区分',               'desc_en': 'Account category',                      "long_desc": "EDINETの勘定科目リストで使用されている勘定科目を財務諸表規則に基づき区分したもの。"},
-    "19": {'name': 'ac_cate_code',        'desc': '勘定科目コード',             'desc_en': 'Account category code',                 "long_desc": "貸借対照表のCSV形式データを作成するのに使用する勘定科目コードです。"},
+    "18": {'name': 'acc_cate',            'desc': '勘定科目区分',               'desc_en': 'Account category',                      "long_desc": "EDINETの勘定科目リストで使用されている勘定科目を財務諸表規則に基づき区分したもの。"},
+    "19": {'name': 'acc_code',            'desc': '勘定科目コード',             'desc_en': 'Account category code',                 "long_desc": "貸借対照表のCSV形式データを作成するのに使用する勘定科目コードです。"},
     "20": {'name': 'etax_acc_ja',         'desc': 'e-Tax対応勘定科目（日本語）', 'desc_en': 'e-Tax compatible account (Japanese)',  "long_desc": "EDINETの勘定科目リストで使用されている勘定科目及び勘定科目コードに対応する公表用e-Tax勘定科目（日本語）"},
     "21": {'name': 'etax_acc_en',         'desc': 'e-Tax対応勘定科目（英語）',  'desc_en': 'e-Tax compatible account (English)',    "long_desc": "EDINETの勘定科目リストで使用されている勘定科目及び勘定科目コードに対応する公表用のe-Tax勘定科目（英語）"},
     "22": {'name': 'etax_acc_cate',       'desc': 'e-Tax勘定科目区分',          'desc_en': 'e-Tax account category',                "long_desc": "e-Taxの勘定科目を財務諸表規則に基づき区分したもの。"},
@@ -188,9 +189,37 @@ def readXlsToTable(db, name, variation, version, tableName, madeFlag):
         data = {}
         for key in Field_Dict:
             if key in [ "16", "17" ]:
-                data[Field_Dict[key]['name']] = record[key] is not None and record[key].strip() == "○"
-            else:
+                data[Field_Dict[key]['name']] = record[key] is not None and record[key].strip() == "○"  # None も False としたことに注意
+            elif key in [ "0" ]:
+                #= ↓ Industry_List から industry_code を取得して登録する
+                # Industry_List = [ { "industry_code" : "10",   "industry_name" : "一般商工業" }, ... ]
+                #=
+                assert(record[key] is not None)
+                industry_name = record[key].strip()
+                
+                industry_name = industry_name.replace("（", "(").replace("）", ")") # 全角括弧を半角括弧に変換: "銀行・信託業（特定取引勘定設置銀行）" ⇒ "銀行・信託業(特定取引勘定設置銀行)" に統一する
+                
+                industry_code = None
+                for industry in Industry_List:
+                    if industry["industry_name"] == industry_name:
+                        industry_code = industry["industry_code"]
+                        break
+                    # fi
+                # rof
+                
+                if industry_code is None:
+                    print(f"Error: industry_code not found for {industry_name}")
+                    exit(1)
+                #fi
+                assert(industry_code is not None)
+                
+                data[Field_Dict[key]['name']] = industry_code
+            elif key in [ "15" ]:  # depth, int
+                assert(record[key] is not None)
+                assert(type(record[key]) == int)
                 data[Field_Dict[key]['name']] = record[key]
+            else:
+                data[Field_Dict[key]['name']] = record[key].strip() if record[key] is not None else ""
             # fi
         # for
 

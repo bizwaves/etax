@@ -70,5 +70,5 @@ def make_jis_level(db, rc):
     for r in rc:
         code = r['code']
         level = r['level']
-        table.update({'code': code, 'level': level}, ['code'])
+        table.update({'code': code, 'level': level, 'etax_code': ''}, ['code'])
     # efor

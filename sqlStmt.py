@@ -8,6 +8,7 @@ STMT_ACC_JIS_CODES = """
 select 
     -- d はすべてのカラムが必要である
     d.level as level,
+    d.etax_code as etax_code,
     d.code as code, 
     d.should_be_deducted as should_be_deducted,
     -- d.is_tax_related as is_tax_related
@@ -20,4 +21,25 @@ left join jis_account_c as c on d.jisacc_c_id = c.id
 left join jis_account_b as b on c.jisacc_b_id = b.id
 left join jis_account_a as a on b.jisacc_a_id = a.id
 order by d.code;
+"""
+
+
+STMT_ETAX_CODES = """
+SELECT 
+    e.id AS id,
+    e.industry AS industry_code, i.industry_name AS industry_name,    
+    e.classification AS classification,
+    e.std_label_ja AS std_label_ja,
+    -- e.ret_label_ja AS ret_label_ja,
+    -- e.usage_cate_ja AS usage_cate_ja,
+    -- e.namespace_prefix AS namespace_prefix,
+    e.element_name AS element_name,
+    
+    e.acc_code AS acc_code,
+    e.acc_cate AS acc_cate_code, c.name AS acc_cate_name
+
+FROM 
+    etax_account AS e
+LEFT JOIN industry AS i ON e.industry = i.industry_code
+LEFT JOIN etax_acc_cate AS c ON e.acc_cate = c.code
 """

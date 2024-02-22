@@ -9,27 +9,37 @@ import sys, copy
 import traceback
 
 
-# dskacc=# select * from jis_account_a;
-#  id | code |          name
-# ----+------+------------------------
-#   1 | 1000 | 流動資産
-#   2 | 2000 | 固定資産
-#   3 | 3000 | 繰延資産
-#   4 | 4000 | 流動負債
-#   5 | 5000 | 固定負債
-#   6 | 6000 | 法令上の引当金
-#   7 | 7000 | 資本
-#   8 | 8000 | 経常損益
-#   9 | 9000 | 特別損益及び未処分損益
-# (9 行)
+#= JIS X0406-1984 勘定科目コード
+# 
+#=
 
+#= JIS X0406-1984 勘定科目コード ⇒ e-Tax 2019年版の勘定科目コード
+# 1) 概要
+#   1-1) JIS X0406-1984 勘定科目コード: [ a 科目分類コード, b 大分類コード, c 中分類コード, d 小分類コード ]
+#   1-2) e-Tax 2019年版の勘定科目コード: 
+#     1-2-1) 桁数構成: 業種番号（２桁）＋ 区分番号（３桁）＋ 整数４桁
+#              例: 勘定科目コード「10 A10 0020」（現金及び預金／一般商工業）の場合
+#                 「10」一般商工業（業種番号），「A10」流動資産（区分番号），「0020」現金及び預金（整数４桁）
+#     1-2-2) 分類構成: 
+#              業種番号（２桁）  ※以下省略 
+#              [ 区分, 大分類, 中分類, 小分類, 細分類 ] ※７桁
+#                例: 貸借対照表 ⇒ 資産 ⇒ 流動資産 ⇒ たな卸資産 ⇒ 商品 ⇒ 未着商品 10 A10 0290
+#
+#                    分類 　  depth name         code xcode etax_code
+#                    ----- 　  ----- ----       ----------                  
+#                    大分類　   2  　資産        10 A000010    A   0   00 10
+#                    区分　　 　3  　流動資産     10 A100010       1    00 10
+#                    中分類 　        -  
+#                    小分類　   4  現金及び預金   10 A100020               20
+#                    細分類     5  現金          （未定義）
 
-#= JIS X0406-1984 勘定科目コード 大分類コード 1桁 ⇒ e-Tax 2019年版の勘定科目コード（BScode10_2019.xlsxとPLcode10_2019.xlsx）
-#   JIS 拡張版: 1..9 A..Z a..z
-#   e-Tax 2019年版の勘定科目コード（BScode10_2019.xlsxとPLcode10_2019.xlsx）: [ 業種コード, 科目分類コード, 大分類コード ]
-#       業種コード      := (例) 一般商工業: "10"
-#       勘定科目区分    := (例) 資産: "A"
-#       大分類コード    :=() 例) 流動資産: "1"
+#                    分類 　  depth name         code xcode etax_code
+#                    ----- 　  ----- ----       ----------                  
+#                    大分類　   2  　資産        10 A000010    A   0    00 10
+#                    区分　　 　3  　固定資産     10 A200010       2     00 10
+#                    中分類 　  4    無形固定資産 10 A220010          2  00 10
+#                    小分類　   5   その他       10 A220170             01 70
+#                    細分類     6   著作権       10 A220310             03 10 
 #
 # メモ
 #   1.貸借対照表
@@ -47,101 +57,94 @@ import traceback
 #             証券取引法第65条の2第7項において準用する同法第51条の規定による準備金。
 #=
 
-JIS_2_ETAX2019_A = { # depth = 0 1 2 3 := 10A1-00010
-    "10" : {    # 一般商工業
-        # 1桁コード       業種コード         科目分類コード,     ETax Aコード
-        "1"         : { "industry" : "10", "category" : "A", "cd" : "1"},  # 流動資産 ⇒ 資産, 流動資産
-        "2"         : { "industry" : "10", "category" : "A", "cd" : "2"},  # 固定資産 ⇒ 資産, 固定資産
-        "3"         : { "industry" : "10", "category" : "A", "cd" : "3"},  # 繰延資産 ⇒ 資産, 繰延資産
-        "4"         : { "industry" : "10", "category" : "B", "cd" : "1"},  # 流動負債 ⇒ 負債, 流動負債
-        "5"         : { "industry" : "10", "category" : "B", "cd" : "2"},  # 固定負債 ⇒ 負債, 固定負債
-        "6"         : { "industry" : "10", "category" : "B", "cd" : "2"},  # 法令上の引当金 ⇒ 負債, 固定負債 ※その他の引当金　特別法上の引当金
-        "7"         : { "industry" : "10", "category" : "C", "cd" : "1"},  # 資本 ⇒ 純資産の部, 株主資本
-        
-        "8"         : { "industry" : "10", "category" : "D", "cd" : "1"},  # （旧：経常損益）経常収益 ⇒ 営業活動による収益
-        "a"         : { "industry" : "10", "category" : "E", "cd" : "1"},  # （旧：経常損益）経常費用 ⇒ 営業活動による費用・売上原価
-        "c"         : { "industry" : "10", "category" : "E", "cd" : "2"},  # （旧：経常損益）経常費用 ⇒ 販売費及び一般管理費
-        
-        "9"         : { "industry" : "10", "category" : "D", "cd" : "3"},  # （旧：特別損益及び未処分損益）特別利益及び未処分利益   ⇒ 特別損益
-        "b"         : { "industry" : "10", "category" : "E", "cd" : "4"},  # （旧：特別損益及び未処分損益）特別費用及び未処分費用　 ⇒ 特別損失
-    }
-}
-
-
-# dskacc=# select id, code, xcode, etax_code, name from jis_account_a order by xcode;
-#  id | code | xcode | etax_code |          name
-# ----+------+-------+-----------+------------------------
-#   1 | 1000 | 1000  | 10A1      | 流動資産
-#   2 | 2000 | 2000  | 10A2      | 固定資産
-#   3 | 3000 | 3000  | 10A3      | 繰延資産
-#   4 | 4000 | 4000  | 10B1      | 流動負債
-#   5 | 5000 | 5000  | 10B2      | 固定負債
-#   6 | 6000 | 6000  | 10B2      | 法令上の引当金
-#   7 | 7000 | 7000  | 10C1      | 資本
-#   8 | 8000 | 8000  | 10D1      | 経常収益
-#   9 | 9000 | 9000  | 10D3      | 特別利益及び未処分利益
-#  97 | 8000 | a000  | 10E1      | 経常費用1
-#  98 | 9000 | b000  | 10E4      | 特別費用及び未処分費用
-#  99 | 8000 | c000  | 10E2      | 経常費用2
-# (12 行)
-
-#= jis_account_a 2024.02.20 版
+#= jis_account_a 2024.02.21 版
+# 1.1) 見方  
 #   ! := 必須　Field
 #   !! := key　Field
 #   MADE := 非必須　Field, 従来アプリと互換性や管理しやすいために作成しているField　※関連データ修正する度に更新・チェックすること
 #           尚、実際、同一データのMADE Fieldは複数の形式が存在し（例：code-n、code-s）、その選択は、データの利用目的やアプリに委ねる。
-#   Unikue Fields: id, cd1 + cd2, code, xcode
+#   Unique Fields: id, industry + cd1 + cd2, industry + code, industry + xcode
+#       ※ JIS コードには、industry 情報が含まれていない。なので、JIS industry + code ⇒ etax_code コード
 #   備考: DB 上 Field Name は、互換性やTableの連結を保つためであり、変更はご慎重に検討の上、行うこと。
+# 1.2) Field List
+#   id          : PRIMARY KEY, 数字自体は、意味を持たない　※レコード追加可、変更不可（リンク切れの恐れがあるため）
+#   industry    : 産業番号, 参照: a) DB industry.industry_code, b) DB etax_account.industry 勘定科目コード表(2019年版) A列 業種
+#   cd1         : JIS X0406-1984 勘定科目コード: a 科目分類コード　※レコード追加可
+#   cd2         : 例: cd1 = 8（旧）経常損益は、cd2 = 0（経常収益）, cd2 = 1（経常費用1）, cd2 = 2（経常費用2）の様に、etax に勘定科目に表す
+#   code        : 仕分け画面でのショットカット用コード、数字自体は、意味を持たない。業務上使用しない項目は、1 にしても構わない。尚、ユーザーが個別的自由に変更できる。
+#   xcode       : 仕分け画面でのショットカット用コード、数字自体は、意味を持たない。業務上使用しない項目は、1 にしても構わない。尚、ユーザーが個別的自由に変更できる。
+#   etax_code   : DB etax_account.acc_code, 勘定科目コード表(2019年版) T列 勘定科目コード
+#   name        : JIS コード上で動作するアプリの画面に表示される名称と想定するもの。※カスタマイズ可、そのため、E-Tax 出力にには、使用しないこと（DB etax_account.etax_acc_ja を使用して下さい）。　
+#                   優先採用順位： 1. JIS X0406-1984 勘定科目コード名,  2. DB etax_account.etax_acc_ja === 勘定科目コード表(2019年版) U列 e-Tax対応勘定科目（日本語）, 2. 任意的設定
+#   note        : お決まりはない
+# 1.3) 参考
+#   a) etax_code 探し出す
+#     dskacc=# select a.id, industry, depth, title_item, total_usage_cate, c.name, acc_code, etax_acc_ja from etax_account as a left join acc_cate as c ON acc_cate = c.code where industry = '10' and not total_usage_cate and etax_acc_ja like '%流動資産%';
 #=
 JIS_2_ETAX2019_A_DATA = [ # depth = 0 1 2 3 := 10A1-00010
-    #  !id        !industry              !code-1         !code-1      code-n          code-s            !etax-code-1    !etax-code-1  etax-code-s           !name                             note
-    #  !! key !!  industry_code          part 1          part 2       MADE, num       MADE, ascii       part 1          part 2        MADE, str       
-    # -------   ---------------------   -------------   ----------   --------------  ---------------   -------------   -----------   --------------------  -------------------------------   ----------------------------------    
-    { "id": 1,  "industry_code": "10",  "cd1":   1,     "cd2":   0,  "code": 10000,  "xcode": "1000",  "etax_1": "A",  "etax_2": 1,  "etax_code": "10A1",  "name": "流動資産",                "note": "流動資産 ⇒ 資産, 流動資産" }, 
-    { "id": 2,  "industry_code": "10",  "cd1":   2,     "cd2":   0,  "code": 20000,  "xcode": "2000",  "etax_1": "A",  "etax_2": 2,  "etax_code": "10A2",  "name": "固定資産",                "note": "固定資産 ⇒ 資産, 固定資産" }, 
-    { "id": 3,  "industry_code": "10",  "cd1":   3,     "cd2":   0,  "code": 30000,  "xcode": "3000",  "etax_1": "A",  "etax_2": 3,  "etax_code": "10A3",  "name": "繰延資産",                "note": "繰延資産 ⇒ 資産, 繰延資産" }, 
-    { "id": 4,  "industry_code": "10",  "cd1":   4,     "cd2":   0,  "code": 40000,  "xcode": "4000",  "etax_1": "B",  "etax_2": 1,  "etax_code": "10B1",  "name": "流動負債",                "note": "流動負債 ⇒ 負債, 流動負債" }, 
-    { "id": 5,  "industry_code": "10",  "cd1":   5,     "cd2":   0,  "code": 50000,  "xcode": "5000",  "etax_1": "B",  "etax_2": 2,  "etax_code": "10B2",  "name": "固定負債",                "note": "固定負債 ⇒ 負債, 固定負債" }, 
-    { "id": 6,  "industry_code": "10",  "cd1":   6,     "cd2":   0,  "code": 60000,  "xcode": "6000",  "etax_1": "B",  "etax_2": 2,  "etax_code": "10B2",  "name": "法令上の引当金",           "note": "法令上の引当金 ⇒ 負債, 固定負債 ※その他の引当金　特別法上の引当金" }, 
-    { "id": 7,  "industry_code": "10",  "cd1":   7,     "cd2":   0,  "code": 70000,  "xcode": "7000",  "etax_1": "C",  "etax_2": 1,  "etax_code": "10C1",  "name": "資本",                    "note": "資本 ⇒ 純資産の部, 株主資本" }, 
-    { "id": 8,  "industry_code": "10",  "cd1":   8,     "cd2":   0,  "code": 80000,  "xcode": "8000",  "etax_1": "D",  "etax_2": 1,  "etax_code": "10D1",  "name": "経常収益",                "note": "（旧：経常損益）経常収益 ⇒ 営業活動による収益" }, 
-    { "id": 97, "industry_code": "10",  "cd1":   8,     "cd2":   1,  "code": 81000,  "xcode": "a000",  "etax_1": "E",  "etax_2": 1,  "etax_code": "10E1",  "name": "経常費用1",               "note": "（旧：経常損益）経常費用 ⇒ 営業活動による費用・売上原価" }, 
-    { "id": 99, "industry_code": "10",  "cd1":   8,     "cd2":   2,  "code": 82000,  "xcode": "c000",  "etax_1": "E",  "etax_2": 2,  "etax_code": "10E2",  "name": "経常費用2",               "note": "（旧：経常損益）経常費用 ⇒ 販売費及び一般管理費" }, 
-    { "id": 9,  "industry_code": "10",  "cd1":   9,     "cd2":   0,  "code": 90000,  "xcode": "9000",  "etax_1": "D",  "etax_2": 3,  "etax_code": "10D3",  "name": "特別利益及び未処分利益",   "note": "（旧：特別損益及び未処分損益）特別利益及び未処分利益 ⇒ 特別損益" }, 
-    { "id": 98, "industry_code": "10",  "cd1":   9,     "cd2":   1,  "code": 91000,  "xcode": "b000",  "etax_1": "E",  "etax_2": 4,  "etax_code": "10E4",  "name": "特別費用及び未処分費用",   "note": "（旧：特別損益及び未処分損益）特別費用及び未処分費用 ⇒ 特別損失" },        
+    #  !id          !industry           !code-1         !code-1      code-n          code-s            etax-code-s                !name                             note
+    #  !! key !!    .industry_code      part 1          part 2       MADE, num       MADE, ascii       MADE, str                                                    BS | PL, acc_cate ⇒ etax_acc_ja
+    # -------       ----------------   -------------   ----------   --------------  ---------------   -------------------------  -------------------------------   ----------------------------------    
+    { "id": 1,      "industry": "10",  "cd1":   1,     "cd2":   0,  "code": 10000,  "xcode": "1000",  "etax_code": "10A100010",  "name": "流動資産",                "note": "BS, 流動資産 ⇒ 流動資産" }, 
+    { "id": 2,      "industry": "10",  "cd1":   2,     "cd2":   0,  "code": 20000,  "xcode": "2000",  "etax_code": "10A200010",  "name": "固定資産",                "note": "BS, 固定資産 ⇒ 固定資産" }, 
+    { "id": 3,      "industry": "10",  "cd1":   3,     "cd2":   0,  "code": 30000,  "xcode": "3000",  "etax_code": "10A300010",  "name": "繰延資産",                "note": "BS, 繰延資産 ⇒ 繰延資産" }, 
+    { "id": 4,      "industry": "10",  "cd1":   4,     "cd2":   0,  "code": 40000,  "xcode": "4000",  "etax_code": "10B100010",  "name": "流動負債",                "note": "BS, 流動負債 ⇒ 流動負債" }, 
+    { "id": 5,      "industry": "10",  "cd1":   5,     "cd2":   0,  "code": 50000,  "xcode": "5000",  "etax_code": "10B200010",  "name": "固定負債",                "note": "BS, 固定負債 ⇒ 固定負債" }, 
+    { "id": 6,      "industry": "10",  "cd1":   6,     "cd2":   0,  "code": 60000,  "xcode": "6000",  "etax_code": "10B300030",  "name": "法令上の引当金",           "note": "BS, 特別法上の準備金等  ⇒ 特別法上の引当金" }, 
+    { "id": 7,      "industry": "10",  "cd1":   7,     "cd2":   0,  "code": 70000,  "xcode": "7000",  "etax_code": "10C110010",  "name": "資本",                    "note": "BS, 資本金 ⇒ 資本金" }, 
+    { "id": 8,      "industry": "10",  "cd1":   8,     "cd2":   0,  "code": 80000,  "xcode": "8000",  "etax_code": "10D100010",  "name": "経常収益",                "note": "PL, (旧：売上高), 売上高  ⇒ 営業活動による収益 特別注意! 10D100090 営業活動による収益の内訳 もあり" }, 
+    { "id": 97,     "industry": "10",  "cd1":   8,     "cd2":   1,  "code": 81000,  "xcode": "a000",  "etax_code": "10E100010",  "name": "経常費用1",               "note": "PL, (旧：経常損益), 売上原価  ⇒ 営業活動による費用・売上原価 特別注意! 10E100080 営業活動による費用・売上原価の内訳 もあり" }, # !!
+    { "id": 99,     "industry": "10",  "cd1":   8,     "cd2":   2,  "code": 82000,  "xcode": "c000",  "etax_code": "10E200010",  "name": "経常費用2",               "note": "PL,（旧：経常損益）, 販売費及び一般管理費  ⇒ 販売費及び一般管理費" }, 
+    { "id": 9,      "industry": "10",  "cd1":   9,     "cd2":   0,  "code": 90000,  "xcode": "9000",  "etax_code": "10D300010",  "name": "特別利益及び未処分利益",   "note": "PL,（旧：特別損益及び未処分損益）, 特別利益 ⇒ 特別利益 特別注意! 同 title_item=No 10D300660 もあり" }, # !!
+    { "id": 98,     "industry": "10",  "cd1":   9,     "cd2":   1,  "code": 91000,  "xcode": "b000",  "etax_code": "10E400010",  "name": "特別費用及び未処分費用",   "note": "PL,（旧：特別損益及び未処分損益）, 特別損失 ⇒ 特別損失 特別注意! 同 title_item=No 10E401080 もあり" }, # !! 
+    { "id": 1000,   "industry": "10",  "cd1":   10,    "cd2":   0,  "code": 0,      "xcode": "f000",  "etax_code": "10F100060",  "name": "法人税等合計",            "note": "PL,（新規）, その他 ⇒ 法人税等合計" }, # !!!! 計算上特に注意が必要
 ]
 
-
+#= jis_account_b 2024.02.21 版 ↓以外は jis_account_a の記載を参照して下さい
+# 2.1) JIS 分類は E-Tax 2019年版の勘定科目コードには定義されていない　⇒ etax_code は、親 の etax_code に設定する（↓の例で、当座資産の etax_code は、a 流動資産 10A100010 を記入する）
+#      ※ Field etax_attr に　"@PARENT" と記入こと、尚、この場合、↑etax_code 親から転記は自動的行う（空白でなければ、手動で記入済と認識し、チェックすること）。
+#   2-1-1) 例: 貸借対照表 ⇒ 負債 ⇒ その他の流動負債 ⇒ 未払金 10B1-00010
+#     JIS 分類  : a1 : [ b1 : [c1, c2, c3, ...], b2 ... ]  ※ a1 = 流動資産, b1 の例: xcode 10100 当座資産 : [c1 現金及び預金 : [ 現金, 預金 .
+#     E-Tax 分類: A1 : [ c1, B2, B3, B4, ... ]             ※ A1 = 流動資産:  [B1 は未定義, c1 0A100020 現金及び預金 はここにあり, ...
+#   2-1-2) etax_attr Field の値は下記の文字列を含む（複数可）
+#       "@PARENT" : 親の etax_code を転記する
+#       "undefcate" : E-Tax には該当分類がない
+#       "undefdata : E-Tax には該当末端項目がない　※ etax_code は、空白にする。このデータは、e-Tax に反映されない、そのため、特別な理由がなければ、使用すべきではない
+# 2.3) 計算は、d.etax_code だけ使い、E-Tax コード上で行うこと
+# 　　　JIS の a b c d 分類、及び、E-Tax の A B C D 分類へのリンクは、数値計算上の依存関係を表すものではない。従って、そのような計算は、E-Tax コード上で行うこと。
+# 　　　　※ そのような計算は、JIS 絡み（a b c d, E-TAX へ）の階層に依存しない、d.etax_code だけ使い、E-TAX へ MAP させ、其の上、E-TAX 側で決算等を行うようにすること。
+#             ⇒つまり、JIS 絡みの階層は、あくまでも、UI 上のものであり、数値上で意味がない。なので、左記の絡みは、勘定科目内在の階層を表す、その一致性を保証するまで保守していない。
+#=
 JIS_2_ETAX2019_B_DATA = [ # depth = 4 := 10A1.0-0010   
-    #  !id        !jisacc_a_id      !code-1         !code-1      code-n            code-s            !etax-code-1    etax-code-s             !should_be_deducted          !name                              note
-    #  !! key !!                    part 1          part 2       MADE, num         MADE, ascii       part 1          MADE, str       
-    # -------   ------------------- -------------   ----------   --------------    ---------------   -------------   ---------------------   ---------------------------  --------------------------------  ----------------------------------                        
-    { "id": 11,  "jisacc_a_id": 1,  "cd1":   1,     "cd2":   0,  "code": 10100,   "xcode": "1100",  "etax_1": 0,    "etax_code": "10A10",  "should_be_deducted": False, "name": "当座資産",                "note": ".現金及び預金.現金" },    
-    { "id": 12,  "jisacc_a_id": 1,  "cd1":   2,     "cd2":   0,  "code": 10200,   "xcode": "1200",  "etax_1": 0,    "etax_code": "10A10",  "should_be_deducted": False, "name": "たな卸資産",              "note": ".商品" },
-    { "id": 14,  "jisacc_a_id": 1,  "cd1":   4,     "cd2":   0,  "code": 10400,   "xcode": "1400",  "etax_1": 0,    "etax_code": "10A10",  "should_be_deducted": False, "name": "その他の流動資産",         "note": ".前渡金" },
-    { "id": 21,  "jisacc_a_id": 2,  "cd1":   1,     "cd2":   0,  "code": 20100,   "xcode": "2100",  "etax_1": 1,    "etax_code": "10A21",  "should_be_deducted": False, "name": "有形固定資産",            "note": ".建物" },
-    { "id": 23,  "jisacc_a_id": 2,  "cd1":   3,     "cd2":   0,  "code": 20300,   "xcode": "2300",  "etax_1": 2,    "etax_code": "10A22",  "should_be_deducted": False, "name": "無形固定資産",            "note": ".特許権" },
-    { "id": 26,  "jisacc_a_id": 2,  "cd1":   6,     "cd2":   0,  "code": 20600,   "xcode": "2600",  "etax_1": 3,    "etax_code": "10A23",  "should_be_deducted": False, "name": "投資その他の資産",        "note": ".出資金" },
-    { "id": 31,  "jisacc_a_id": 3,  "cd1":   1,     "cd2":   0,  "code": 30100,   "xcode": "3100",  "etax_1": 0,    "etax_code": "10A30",  "should_be_deducted": False, "name": "繰延資産",                "note": ".創立費" },
-    { "id": 41,  "jisacc_a_id": 4,  "cd1":   1,     "cd2":   0,  "code": 40100,   "xcode": "4100",  "etax_1": 0,    "etax_code": "10B10",  "should_be_deducted": False, "name": "短期債務",                "note": ".買掛金" },
-    { "id": 43,  "jisacc_a_id": 4,  "cd1":   3,     "cd2":   0,  "code": 40300,   "xcode": "4300",  "etax_1": 0,    "etax_code": "10B10",  "should_be_deducted": False, "name": "引当金(流動性のもの)",     "note": ".修繕引当金" },
-    { "id": 45,  "jisacc_a_id": 4,  "cd1":   5,     "cd2":   0,  "code": 40500,   "xcode": "4500",  "etax_1": 0,    "etax_code": "10B10",  "should_be_deducted": False, "name": "その他の流動負債",        "note": ".未払金" },
-    { "id": 51,  "jisacc_a_id": 5,  "cd1":   1,     "cd2":   0,  "code": 50100,   "xcode": "5100",  "etax_1": 0,    "etax_code": "10B20",  "should_be_deducted": False, "name": "長期債務",                "note": ".社債" },
-    { "id": 53,  "jisacc_a_id": 5,  "cd1":   3,     "cd2":   0,  "code": 50300,   "xcode": "5300",  "etax_1": 0,    "etax_code": "10B20",  "should_be_deducted": False, "name": "引当金(固定性のもの)",     "note": ".修繕引当金" },
-    { "id": 61,  "jisacc_a_id": 6,  "cd1":   1,     "cd2":   0,  "code": 60100,   "xcode": "6100",  "etax_1": 0,    "etax_code": "10B20",  "should_be_deducted": False, "name": "商法第287条ノ2の引当金",   "note": ".商法第287条ノ２の引当金をその名称を付して処理する。" },
-    { "id": 62,  "jisacc_a_id": 6,  "cd1":   2,     "cd2":   0,  "code": 60200,   "xcode": "6200",  "etax_1": 0,    "etax_code": "10B20",  "should_be_deducted": False, "name": "特別法上の準備金・引当金", "note": ".金融先物取引責任準備金" },
-    { "id": 71,  "jisacc_a_id": 7,  "cd1":   1,     "cd2":   0,  "code": 70100,   "xcode": "7100",  "etax_1": 0,    "etax_code": "10C10",  "should_be_deducted": False, "name": "資本",                    "note": ".資本金" },
-    { "id": 72,  "jisacc_a_id": 7,  "cd1":   2,     "cd2":   0,  "code": 70200,   "xcode": "7200",  "etax_1": 0,    "etax_code": "10C10",  "should_be_deducted": False, "name": "法定準備金",              "note": ".法定準備金" },
-    { "id": 73,  "jisacc_a_id": 7,  "cd1":   3,     "cd2":   0,  "code": 70300,   "xcode": "7300",  "etax_1": 0,    "etax_code": "10C10",  "should_be_deducted": False, "name": "その他の剰余金",           "note": ".その他の剰余金" },
-    { "id": 81,  "jisacc_a_id": 8,  "cd1":   1,     "cd2":   0,  "code": 80100,   "xcode": "8100",  "etax_1": 0,    "etax_code": "10D10",  "should_be_deducted": False, "name": "売上高",                    "note": ".売上高" },
-    { "id": 86,  "jisacc_a_id": 8,  "cd1":   6,     "cd2":   0,  "code": 80600,   "xcode": "8600",  "etax_1": 0,    "etax_code": "10D10",  "should_be_deducted": False, "name": "営業外収益",                "note": ".営業外収益" },
-    { "id": 91,  "jisacc_a_id": 9,  "cd1":   1,     "cd2":   0,  "code": 90100,   "xcode": "9100",  "etax_1": 0,    "etax_code": "10D30",  "should_be_deducted": False, "name": "特別利益",                  "note": ".特別利益" },
-    { "id": 99,  "jisacc_a_id": 9,  "cd1":   9,     "cd2":   0,  "code": 90900,   "xcode": "9900",  "etax_1": 0,    "etax_code": "10D30",  "should_be_deducted": False, "name": "当期未処分利益(又は当期未処理損失)", "note": ".当期未処分利益" },
-    { "id": 82,  "jisacc_a_id": 97, "cd1":   2,     "cd2":   0,  "code": 81200,   "xcode": "a200",  "etax_1": 0,    "etax_code": "10E10",  "should_be_deducted": False, "name": "売上原価",                  "note": ".売上原価" },
-    { "id": 92,  "jisacc_a_id": 98, "cd1":   2,     "cd2":   0,  "code": 91200,   "xcode": "b200",  "etax_1": 0,    "etax_code": "10E40",  "should_be_deducted": False, "name": "特別損失",                  "note": ".特別損失" },
-    { "id": 98,  "jisacc_a_id": 98, "cd1":   8,     "cd2":   0,  "code": 91800,   "xcode": "b800",  "etax_1": 0,    "etax_code": "10E40",  "should_be_deducted": False, "name": "法人税及び住民税",          "note": ".法人税" },
-    { "id": 83,  "jisacc_a_id": 99, "cd1":   3,     "cd2":   0,  "code": 82300,   "xcode": "c300",  "etax_1": 0,    "etax_code": "10E20",  "should_be_deducted": False, "name": "販売費及び一般管理費",      "note": ".広告宣伝費" },
-    { "id": 88,  "jisacc_a_id": 99, "cd1":   8,     "cd2":   0,  "code": 82800,   "xcode": "c800",  "etax_1": 0,    "etax_code": "10E20",  "should_be_deducted": False, "name": "営業外費用",                "note": ".営業外費用" },
+    #  !id        !jisacc_a_id      !code-1         !code-1      code-n            code-s             etax-code-s               !etax_attr                          !should_be_deducted             !name                           note
+    #  !! key !!                    part 1          part 2       MADE, num         MADE, ascii        MADE, str                                                                                     acc_cate ⇒ etax_acc_ja
+    # -------   ------------------- -------------   ----------   --------------    ---------------    ---------------------    ----------------------------------   ---------------------------     ------------------------------  ----------------------------------                        
+    { "id": 11,  "jisacc_a_id": 1,  "cd1":   1,     "cd2":   0,  "code": 10100,   "xcode": "1100",   "etax_code": "10A100010", "etax_attr": "undefcate, @PARENT",   "should_be_deducted": False,    "name": "当座資産",              "note": "eTax に該当分類がない, 下位は .現金及び預金.現金" },    
+    { "id": 12,  "jisacc_a_id": 1,  "cd1":   2,     "cd2":   0,  "code": 10200,   "xcode": "1200",   "etax_code": "10A100270", "etax_attr": "",                     "should_be_deducted": False,    "name": "たな卸資産",            "note": "流動資産 ⇒ たな卸資産, 下位例 .商品" },
+    { "id": 14,  "jisacc_a_id": 1,  "cd1":   4,     "cd2":   0,  "code": 10400,   "xcode": "1400",   "etax_code": "10A100010", "etax_attr": "undefcate, @PARENT",   "should_be_deducted": False,    "name": "その他の流動資産",       "note": "eTax に該当分類がない, 下位例 .前渡金 .未収収益" },
+    { "id": 21,  "jisacc_a_id": 2,  "cd1":   1,     "cd2":   0,  "code": 20100,   "xcode": "2100",   "etax_code": "10A210010", "etax_attr": "",                     "should_be_deducted": False,    "name": "有形固定資産",           "note": "有形固定資産  ⇒ 有形固定資産, .建物 ..." },
+    { "id": 23,  "jisacc_a_id": 2,  "cd1":   3,     "cd2":   0,  "code": 20300,   "xcode": "2300",   "etax_code": "10A220010", "etax_attr": "",                     "should_be_deducted": False,    "name": "無形固定資産",           "note": "無形固定資産 ⇒ 無形固定資産, .特許権..." },
+    { "id": 26,  "jisacc_a_id": 2,  "cd1":   6,     "cd2":   0,  "code": 20600,   "xcode": "2600",   "etax_code": "10A230010", "etax_attr": "",                     "should_be_deducted": False,    "name": "投資その他の資産",       "note": "投資その他の資産 ⇒ 投資その他の資産, .出資金... 特別注意! 10A230840 投資その他の資産（総額）" },
+    { "id": 31,  "jisacc_a_id": 3,  "cd1":   1,     "cd2":   0,  "code": 30100,   "xcode": "3100",   "etax_code": "10A300010", "etax_attr": "",                     "should_be_deducted": False,    "name": "繰延資産",              "note": "繰延資産 ⇒ 繰延資産, .創立費" },
+    { "id": 41,  "jisacc_a_id": 4,  "cd1":   1,     "cd2":   0,  "code": 40100,   "xcode": "4100",   "etax_code": "10B100010", "etax_attr": "undefcate, @PARENT",   "should_be_deducted": False,    "name": "短期債務",              "note": "eTax に該当分類がない, 下位は .未払費用 .買掛金 ..." },
+    { "id": 43,  "jisacc_a_id": 4,  "cd1":   3,     "cd2":   0,  "code": 40300,   "xcode": "4300",   "etax_code": "10B100300", "etax_attr": "",                     "should_be_deducted": False,    "name": "引当金(流動性のもの)",   "note": "流動負債 ⇒ 引当金, .修繕引当金 .売上割戻引当金..." }, 
+    { "id": 45,  "jisacc_a_id": 4,  "cd1":   5,     "cd2":   0,  "code": 40500,   "xcode": "4500",   "etax_code": "10B100010", "etax_attr": "undefcate, @PARENT",   "should_be_deducted": False,    "name": "その他の流動負債",        "note": "eTax に該当分類がない, 下位は .割賦販売繰延利益" },
+    { "id": 51,  "jisacc_a_id": 5,  "cd1":   1,     "cd2":   0,  "code": 50100,   "xcode": "5100",   "etax_code": "10B200010", "etax_attr": "undefcate, @PARENT",   "should_be_deducted": False,    "name": "長期債務",                "note": "eTax に該当分類がない, 下位は .社債 .長期預り金..." },
+    { "id": 53,  "jisacc_a_id": 5,  "cd1":   3,     "cd2":   0,  "code": 50300,   "xcode": "5300",   "etax_code": "10B200110", "etax_attr": "",                     "should_be_deducted": False,    "name": "引当金(固定性のもの)",     "note": "固定負債 ⇒ 引当金, .修繕引当金 .退職給付引当金" },
+    { "id": 61,  "jisacc_a_id": 6,  "cd1":   1,     "cd2":   0,  "code": 60100,   "xcode": "6100",   "etax_code": "10B300030", "etax_attr": "undefcate, @PARENT",   "should_be_deducted": False,    "name": "商法第287条ノ2の引当金",   "note": "eTax に該当分類がない, 商法第287条ノ２の引当金をその名称を付して処理する。" },
+    { "id": 62,  "jisacc_a_id": 6,  "cd1":   2,     "cd2":   0,  "code": 60200,   "xcode": "6200",   "etax_code": "10B300030", "etax_attr": "undefcate, @PARENT",   "should_be_deducted": False,    "name": "特別法上の準備金・引当金", "note": "eTax に該当分類がない, 金融先物取引責任準備金" },
+    { "id": 71,  "jisacc_a_id": 7,  "cd1":   1,     "cd2":   0,  "code": 70100,   "xcode": "7100",   "etax_code": "10C100010", "etax_attr": "",                     "should_be_deducted": False,    "name": "資本",                    "note": "株主資本 ⇒ 株主資本, .資本金" },
+    { "id": 72,  "jisacc_a_id": 7,  "cd1":   2,     "cd2":   0,  "code": 70200,   "xcode": "7200",   "etax_code": "10C120010", "etax_attr": "",                     "should_be_deducted": False,    "name": "法定準備金",              "note": "資本剰余金 ⇒ 資本剰余金, .法定準備金" },
+    { "id": 73,  "jisacc_a_id": 7,  "cd1":   3,     "cd2":   0,  "code": 70300,   "xcode": "7300",   "etax_code": "10C130030", "etax_attr": "",                     "should_be_deducted": False,    "name": "その他の剰余金",           "note": "利益剰余金  ⇒ その他利益剰余金, .任意積立金" },
+    { "id": 81,  "jisacc_a_id": 8,  "cd1":   1,     "cd2":   0,  "code": 80100,   "xcode": "8100",   "etax_code": "10D100020", "etax_attr": "",                     "should_be_deducted": False,    "name": "売上高",                    "note": "売上高 ⇒ 売上高, .営業収入" },
+    { "id": 86,  "jisacc_a_id": 8,  "cd1":   6,     "cd2":   0,  "code": 80600,   "xcode": "8600",   "etax_code": "10D200010", "etax_attr": "",                     "should_be_deducted": False,    "name": "営業外収益",                "note": "営業外収益 ⇒ 営業外収益, .営業外収益" },
+    { "id": 91,  "jisacc_a_id": 9,  "cd1":   1,     "cd2":   0,  "code": 90100,   "xcode": "9100",   "etax_code": "10D300010", "etax_attr": "",                     "should_be_deducted": False,    "name": "特別利益",                  "note": "特別利益 ⇒ 特別利益, .特別利益" },
+    { "id": 99,  "jisacc_a_id": 9,  "cd1":   9,     "cd2":   0,  "code": 90900,   "xcode": "9900",   "etax_code": "10D300660", "etax_attr": "undefcate, @PARENT",   "should_be_deducted": False,    "name": "当期未処分利益(又は当期未処理損失)", "note": "eTax に該当分類がない, 下位例 .当期未処分利益" },   
+    { "id": 82,  "jisacc_a_id": 97, "cd1":   2,     "cd2":   0,  "code": 81200,   "xcode": "a200",   "etax_code": "10E100020", "etax_attr": "",                     "should_be_deducted": False,    "name": "売上原価",                  "note": "売上原価 ⇒ 売上原価" },
+    { "id": 92,  "jisacc_a_id": 98, "cd1":   2,     "cd2":   0,  "code": 91200,   "xcode": "b200",   "etax_code": "10E400010", "etax_attr": "undefcate, @PARENT",   "should_be_deducted": False,    "name": "特別損失",                  "note": "eTax に該当分類がない, 特別損失 ⇒ 特別損失 特別注意! 同 title_item=No 10E401080 もあり" },
+    { "id": 98,  "jisacc_a_id": 1000, "cd1": 1,     "cd2":   0,  "code": 0,       "xcode": "f100",   "etax_code": "10F100060", "etax_attr": "undefcate, @PARENT",   "should_be_deducted": False,    "name": "法人税及び住民税",          "note": "その他 ⇒ 法人税等合計, .法人税" }, # !!!! 計算上特に注意が必要
+    { "id": 83,  "jisacc_a_id": 99, "cd1":   3,     "cd2":   0,  "code": 82300,   "xcode": "c300",   "etax_code": "10E200010", "etax_attr": "undefcate, @PARENT",   "should_be_deducted": False,    "name": "販売費及び一般管理費",      "note": "eTax に該当分類がない, 下位は.広告宣伝費" },
+    { "id": 88,  "jisacc_a_id": 99, "cd1":   8,     "cd2":   0,  "code": 82800,   "xcode": "c800",   "etax_code": "10E300010", "etax_attr": "",                     "should_be_deducted": False,    "name": "営業外費用",                "note": "営業外費用 ⇒ 営業外費用, .営業外費用" },
 ]
 
 # dskacc=# select * from jis_account_c;
@@ -276,6 +279,21 @@ JIS_2_ETAX2019_B_DATA = [ # depth = 4 := 10A1.0-0010
 #           62 | 620 | 6200 | 特別法上の準備金・引当金       | f
 #           83 | 830 | 8300 | 販売費及び一般管理費           | f
 # (128 行)
+
+#= jis_account_c 2024.02.21 版 ↓以外は jis_account_a, b の記載を参照して下さい
+#
+#=
+JIS_2_ETAX2019_C_DATA = [
+    #  !id          !jisacc_b_id        !code-1         !code-1      code-n            code-s             etax-code-s               !etax_attr                          !should_be_deducted             !name                           note
+    #  !! key !!                        part 1          part 2       MADE, num         MADE, ascii        MADE, str                                                                                     acc_cate ⇒ etax_acc_ja
+    # -------       ------------------- -------------   ----------   --------------    ---------------    ---------------------    ----------------------------------   ---------------------------     ------------------------------  ----------------------------------      
+    { "id": 111,    "jisacc_b_id": 11,  "cd1":   1,     "cd2":   0,  "code": 1110,   "xcode": "1100",   "etax_code": "10A100020", "etax_attr": "",                     "should_be_deducted": False,    "name": "現金及び預金",           "note": "流動資産 | 現金及び預金, .現金 .預金" }, 
+    { "id": 112,    "jisacc_b_id": 11,  "cd1":   2,     "cd2":   0,  "code": 1120,   "xcode": "1200",   "etax_code": "10A100060", "etax_attr": "",                     "should_be_deducted": False,    "name": "受取手形",               "note": "流動資産 | 受取手形; 特に注意！ 同 depth 4 に 10A100030 | 流動資産 | 受取手形及び売掛金, 10A100180 | 流動資産 | 受取手形及び営業未収入金 もあり、要決算時調査!" },
+    { "id": 113,    "jisacc_b_id": 11,  "cd1":   3,     "cd2":   0,  "code": 1130,   "xcode": "1300",   "etax_code": "10A100090", "etax_attr": "",                     "should_be_deducted": False,    "name": "売掛金",                 "note": "流動資産 | 売掛金; 特に注意！ 同 depth 4 に 10A100030 | 流動資産 | 受取手形及び売掛金もあり、要決算時調査!" },
+    { "id": 114,    "jisacc_b_id": 11,  "cd1":   4,     "cd2":   0,  "code": 1140,   "xcode": "1400",   "etax_code": "10A100220", "etax_attr": "",                     "should_be_deducted": False,    "name": "有価証券",               "note": "流動資産 | 売買目的有価証券及び1年内に満期の到来する有価証券; 注意: e-Tax対応勘定科目（日本語）は「タイトル項目」だから検出できない、要参照:標準ラベル（日本語）" },
+    { "id": 115,    "jisacc_b_id": 11,  "cd1":   5,     "cd2":   0,  "code": 1150,   "xcode": "1500",   "etax_code": "10A100240", "etax_attr": "",                     "should_be_deducted": False,    "name": "自己株式",               "note": "流動資産 | 自己株式" },
+]
+
 
 
 # dskacc=# select * from jis_account_d;
@@ -540,85 +558,6 @@ def makeJisB2EtaxField(db, industry, tableName, madeFlag):
     
     print("JIS_2_ETAX2019_A_DATA を jis_account_b に upsert した。")    
     
-    
-def makeJisA2EtaxField_old(db, industry, tableName, madeFlag):
-    # jis_account_a データを読み込む
-    table = db[tableName]
-    
-    rows = table.all()
-    
-    for row in rows:
-        pprint.pprint(row)  # OrderedDict([('id', 1), ('code', 1000), ('name', '流動資産')])
-        
-        xcode = row['xcode'] if row['xcode'] is not None else str(row['code'])
-        mycode  = xcode[:1] # 1桁コード, 1..9 A..Z a..z 拡張版
-        
-        indusCodeDict = JIS_2_ETAX2019_A[industry]
-        assert(indusCodeDict is not None)
-        
-        etaxCode = indusCodeDict[mycode]
-        assert(etaxCode is not None)
-        pprint.pprint(etaxCode)
-      
-        record = copy.deepcopy(row)
-        record["xcode"] = xcode          # !! Str型の拡張版に変換
-        record["etax_code"] = f'{etaxCode["industry"]}{etaxCode["category"]}{etaxCode["cd"]}' # e-Tax 2019年版の勘定科目コード
-        record[ "made_flag" ] = madeFlag
-        pprint.pprint(record)
-        
-        table.update(record, ['id'])
-        
-        #= 初期のみ実行: xcode a000 b000 作成
-        # if mycode == "8":
-        #     #= "9" （旧：経常損益）経常費用 レコードを作成する
-        #     mycode  = "a"
-        #     etaxCode = indusCodeDict[mycode]
-        #     assert(etaxCode is not None)
-        #     pprint.pprint(etaxCode)            
-            
-        #     record = copy.deepcopy(row)
-        #     record["xcode"] = f'{mycode}000' # !! Str型の拡張版に変換
-        #     record["etax_code"] = f'{etaxCode["industry"]}{etaxCode["category"]}{etaxCode["cd"]}' # e-Tax 2019年版の勘定科目コード
-        #     record[ "made_flag" ] = madeFlag
-            
-        #     record["id"] = 97
-        #     pprint.pprint(record)
-        #     table.upsert(record, ['id', 'xcode'])
-        # #fi
-        # if mycode == "8":
-        #     #= "9" （旧：経常損益）経常費用 レコードを作成する
-        #     mycode  = "c"
-        #     etaxCode = indusCodeDict[mycode]
-        #     assert(etaxCode is not None)
-        #     pprint.pprint(etaxCode)            
-            
-        #     record = copy.deepcopy(row)
-        #     record["xcode"] = f'{mycode}000' # !! Str型の拡張版に変換
-        #     record["etax_code"] = f'{etaxCode["industry"]}{etaxCode["category"]}{etaxCode["cd"]}' # e-Tax 2019年版の勘定科目コード
-        #     record[ "made_flag" ] = madeFlag
-            
-        #     record["id"] = 99
-        #     pprint.pprint(record)
-        #     table.upsert(record, ['id', 'xcode'])
-        # #fi
-        # if mycode == "9":
-        #     #= "9" （旧：特別損益及び未処分損益）
-        #     mycode  = "b"
-        #     etaxCode = indusCodeDict[mycode]
-        #     assert(etaxCode is not None)
-        #     pprint.pprint(etaxCode)            
-            
-        #     record = copy.deepcopy(row)
-        #     record["xcode"] = f'{mycode}000' # !! Str型の拡張版に変換
-        #     record["etax_code"] = f'{etaxCode["industry"]}{etaxCode["category"]}{etaxCode["cd"]}' # e-Tax 2019年版の勘定科目コード
-        #     record[ "made_flag" ] = madeFlag
-            
-        #     record["id"] = 98
-        #     pprint.pprint(record)
-        #     table.upsert(record, ['id', 'xcode'])
-        # #fi
-                
-    #rof
     
 
 if __name__ == '__main__':

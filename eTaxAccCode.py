@@ -104,20 +104,19 @@ def makeDocEntryTable(db, name, variation, version, tableName, madeFlag):
     print("makeDocEntryTable done")
 
 
-def readXlsToTable(db, name, variation, version, tableName, madeFlag):
+def readXlsToTable(db, spec_name, variation, version, tableName, madeFlag):
     # = +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=
     # e-tax 勘定科目コード表 excel ファイルを読み込んで、Database Table に upsert する
     #   ※ ローカルファイルが存在しない場合は自動的ダウンロードする
     # = +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=
     # pdb.set_trace()
     
-    spec_file = findSpecFile(db, name, variation, version)
+    spec_file = findSpecFile(db, spec_name, variation, version)
     
     localfile = spec_file['localfile']
     sheetName = spec_file['sheet']
     table = spec_file['table']
     
-
     assert(localfile is not None and len(localfile) > 0)
     assert(sheetName is not None and len(sheetName) > 0)
     assert(table is not None and len(table) > 0)
@@ -203,8 +202,8 @@ def readXlsToTable(db, name, variation, version, tableName, madeFlag):
                 
                 industry_code = None
                 for industry in Industry_List:
-                    if industry["industry_name"] == industry_name:
-                        industry_code = industry["industry_code"]
+                    if industry["name"] == industry_name:
+                        industry_code = industry["code"]
                         break
                     # fi
                 # rof
@@ -276,7 +275,7 @@ def readXlsToTable(db, name, variation, version, tableName, madeFlag):
         data["jis_code"] = ""           # 【ペンディング】jis-code table へのリンク ※検討中だが、とりあえず空欄を作っておく
 
         # 元出処（Unique Key Fields）
-        data["spec_name"] = name
+        data["spec_name"] = spec_name
         data["spec_variation"] = variation
         data["spec_version"] = version
         

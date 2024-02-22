@@ -22,7 +22,7 @@ Record_List = [
         "name"      : "bs.acc-cate-code.etax.acc",  # !! ID, Key 1
         "variation" : "all",  # !! Varriant, Key 2
         "version"   : "2019",  # !! Version, Key 3
-        "localfile" : "in-data/BScode10_2019.xlsx",  # Download されたファイル
+        "localfile" : "in-data/BScodeall_2019.xlsx",  # Download されたファイル
         "sheet"     : "貸借対照表　勘定科目コード表(2019年版)",  # Excel Sheet Name Or Sheet Number (0, 1, 2, ...) 書き方は要検討
         "table"     : "etax_account",  # o.p.t お勧め Database Table Name
         "parser"    : "eTaxAccCode.py",  # 解析・DB Loadプログラム
@@ -79,7 +79,7 @@ Record_List = [
         "table"     : "etax_account",
         "parser"    : "eTaxAccCode.py",
         "writer"    : "",
-        "curl"      : "https://www.e-tax.nta.go.jp/hojin/gimuka/csv_jyoho3/1/BScode10_2019.xlsx",
+        "curl"      : "https://www.e-tax.nta.go.jp/hojin/gimuka/csv_jyoho3/2/PLcode10_2019.xlsx",
         "url"       : "https://www.e-tax.nta.go.jp/hojin/gimuka/csv_jyoho4_zaihyo_soneki_02.htm",
         "desc"      : "ホーム > 利用可能手続一覧 > 財務諸表のＣＳＶ形式データの作成方法 > 財務諸表（損益計算書）の勘定科目コード表及び標準フォーム（令和2年4月１日以後提出分）",
     },
@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
     if argc != 4:
         print('Usage: \n python makeDocTable.py "Database Connecting String" "Table Name" "Made Flag String"')
-        print('E.g: \n python makeDocTable.py "postgresql://postgres:postgres@localhost:25432/dskacc" "spec_file" "2024.02.13"')
+        print('E.g: \n python makeDocTable.py "postgresql://postgres:postgres@localhost:25432/dskacc" "spec_file" "2024.02.22"')
         exit(1)
     # fi
 

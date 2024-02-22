@@ -3,7 +3,7 @@
 ###
 # @file: makeIndustryTable.py
 # @require: pip install openpyxl dataset
-# @version: 0.0.2, 2024.02.15
+# @version: 0.0.3, 2024.02.22
 # @author: H. Nakano nakano-h@bitwaves.org
 # @url: https://www.bitwaves.org/
 ###
@@ -22,29 +22,29 @@ from openpyxl import load_workbook, workbook
 # EDINET23業種
 #=
 Record_List = [
-    { "industry_code" : "10",   "industry_name" : "一般商工業" },
-    { "industry_code" : "11",   "industry_name" : "建設業" },
-    { "industry_code" : "12",   "industry_name" : "銀行・信託業" },
-    { "industry_code" : "13",   "industry_name" : "銀行・信託業(特定取引勘定設置銀行)" },
-    { "industry_code" : "14",   "industry_name" : "建設保証業" },
-    { "industry_code" : "15",   "industry_name" : "第一種金融商品取引業" },
-    { "industry_code" : "16",   "industry_name" : "生命保険業" },
-    { "industry_code" : "17",   "industry_name" : "損害保険業" },
-    { "industry_code" : "18",   "industry_name" : "鉄道事業" },
-    { "industry_code" : "19",   "industry_name" : "海運事業" },
-    { "industry_code" : "20",   "industry_name" : "高速道路事業" },
-    { "industry_code" : "21",   "industry_name" : "電気通信事業" },
-    { "industry_code" : "22",   "industry_name" : "電気事業" },
-    { "industry_code" : "23",   "industry_name" : "ガス事業" },
-    { "industry_code" : "24",   "industry_name" : "資産流動化業" },
-    { "industry_code" : "25",   "industry_name" : "投資運用業" },
-    { "industry_code" : "26",   "industry_name" : "投資業" },
-    { "industry_code" : "27",   "industry_name" : "特定金融業" },
-    { "industry_code" : "28",   "industry_name" : "社会医療法人" },
-    { "industry_code" : "29",   "industry_name" : "学校法人" },
-    { "industry_code" : "30",   "industry_name" : "商品先物取引業" },
-    { "industry_code" : "31",   "industry_name" : "リース事業" },
-    { "industry_code" : "32",   "industry_name" : "投資信託受益証券" },
+    { "code" : "10",   "name" : "一般商工業" },
+    { "code" : "11",   "name" : "建設業" },
+    { "code" : "12",   "name" : "銀行・信託業" },
+    { "code" : "13",   "name" : "銀行・信託業(特定取引勘定設置銀行)" },
+    { "code" : "14",   "name" : "建設保証業" },
+    { "code" : "15",   "name" : "第一種金融商品取引業" },
+    { "code" : "16",   "name" : "生命保険業" },
+    { "code" : "17",   "name" : "損害保険業" },
+    { "code" : "18",   "name" : "鉄道事業" },
+    { "code" : "19",   "name" : "海運事業" },
+    { "code" : "20",   "name" : "高速道路事業" },
+    { "code" : "21",   "name" : "電気通信事業" },
+    { "code" : "22",   "name" : "電気事業" },
+    { "code" : "23",   "name" : "ガス事業" },
+    { "code" : "24",   "name" : "資産流動化業" },
+    { "code" : "25",   "name" : "投資運用業" },
+    { "code" : "26",   "name" : "投資業" },
+    { "code" : "27",   "name" : "特定金融業" },
+    { "code" : "28",   "name" : "社会医療法人" },
+    { "code" : "29",   "name" : "学校法人" },
+    { "code" : "30",   "name" : "商品先物取引業" },
+    { "code" : "31",   "name" : "リース事業" },
+    { "code" : "32",   "name" : "投資信託受益証券" },
 ]
 
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     if argc != 4:
         print('Usage: \n python makeIndustryTable.py "Database Connecting String" "Table Name" "Made Flag String"')
-        print('E.g: \n python makeIndustryTable.py "postgresql://postgres:postgres@localhost:25432/dskacc" "industry" "2024.02.13"')
+        print('E.g: \n python makeIndustryTable.py "postgresql://postgres:postgres@localhost:25432/dskacc" "industry" "2024.02.22"')
         exit(1)
     # fi
 

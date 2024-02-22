@@ -16,6 +16,9 @@ import sys
 import traceback
 
 
+numCodeList = []  # check 用
+dskCodeList = []  # check 用
+
 #              0  1  2  3  4    5  6  7  8  9  depth
 #              ↓  ↓  ↓  ↓  ↓    ↓  ↓  ↓  ↓  ↓
 lastLevels = [ 0, 0, 0, 0, 0,   0, 0, 0, 0, 0 ]     #  depth 0.. のレベル追跡,  各要素は、空は 0, 有効な値は 1..n
@@ -55,32 +58,143 @@ industryStruct = {}
 # #=
 
 
-def layerCode(industry, level, maxDepth = 8):
-    #= level から、整数のlayerコードを生成する
-    #   i = 0, 1, 8, 9 は、無視する
+def layerEncodeDsk(industry, level, maxDepth = 8):
+    #= layer情報 max_level から DSK コードを生成する
+    #             0  1  2       3    4    5     6  7  8  9      depth
+    # [ in]  10  [2, 3, 18,     131, 64, 131,  39, 6, 0, 0]     industry level
+    # [out]  10   Hi Lo ASCII   02h  02h 02h   02h Lo - -       ASCII: 1 := A, 2 := B ... 26 := Z 
+    #             ※ depth = 8, 9 は、無視する
+    #=
+    # pdb.set_trace()
+    
+    # 1) industry ⇒ 02d
+    n = int(industry)
+    indu = f'{n:02d}'
+    
+    # 2) depth 0, 1 ⇒ bit 3-2, bit 1-0
+    hi = level[0]
+    low = level[1]
+    n = hi << 2 | low
+    s1 = f'{n:01x}'
+    
+    # 3) depth 2 ⇒ ASCII A..Z (1 := A, 2 := B ... 26 := Z)
+    n = level[2]
+    s2A = chr(n + 64) # A.. 
+    
+    # 4) depth 3..6 ⇒ 02h
+    s3 = f'{level[3]:02x}'
+    s4 = f'{level[4]:02x}'
+    s5 = f'{level[5]:02x}'
+    s6 = f'{level[6]:02x}'
+    
+    # 5) depth 7 ⇒ bit 3-0
+    hi = 0 # !保留 
+    low = level[7]
+    n = hi << 4 | low
+    s7 = f'{n:01x}'
+    
+    strCode = f'{indu}{s1}{s2A}{s3}{s4}{s5}{s6}{s7}'
+            
+    return strCode
+
+
+def layerDecodeDsk(dskCode, maxDepth = 8):
+    # [IN] '10 a P 0101 0000 0'
+    #                     11 1
+    #       01 2 3 4567 8901 2
+    #                     
+    industry = int(dskCode[0:2])
+    
+    layer = [ 0, 0, 0, 0, 0,   0, 0, 0, 0, 0 ]
+    s1 = int(dskCode[2], 16)
+    hi = s1 >> 2
+    low = s1 & 0x03
+    layer[0] = hi
+    layer[1] = low
+    
+    s2A = dskCode[3]
+    n = ord(s2A) - 64
+    layer[2] = n
+    
+    s3 = int(dskCode[4:6], 16)
+    s4 = int(dskCode[6:8], 16)
+    s5 = int(dskCode[8:10], 16)
+    s6 = int(dskCode[10:12], 16)
+    layer[3] = s3
+    layer[4] = s4
+    layer[5] = s5
+    layer[6] = s6
+    
+    s7 = int(dskCode[12], 16)
+    hi = s7 >> 4
+    low = s7 & 0x0f
+    
+    # hi 保留
+    layer[7] = low
+    
+    return str(industry), layer
+
+
+def layerEncodeNum(industry, level, maxDepth = 8):
+    #= layer情報 max_level から Numbers コードを生成する
+    #             0  1  2   3    4   5     6   7  8  9   depth
+    # [ in]  10  [2, 3, 18, 131, 64, 131,  39, 6, 0, 0]  industry level
+    # [out]  10   -  -  2d  3d   2d 3d     2d  1d -  -   Numbers Code 例: 10A210310 | 100100201005011 | 減価償却累計額、船舶
+    #             ※ depth = 8, 9 は、無視する
     #=
     n = int(industry)
     m = 0
     for i in range(0, maxDepth):    # 0..maxDepth-1
         ev = level[i]
         if i == 7:
-            m += ev                 # 7桁目 ⇒ 1桁 小計 1桁
+            m += ev                  # 7桁目 ⇒ 1桁 小計 1桁
         elif i == 6:
-            m += ev * 10            # 6桁目 ⇒ 2桁 小計 3桁
+            m += ev * 10             # 6桁目 ⇒ 2桁 小計 3桁
         elif i == 5:
-            m += ev * 1000          # 5桁目 ⇒ 3桁 小計 6桁
+            m += ev * 1000           # 5桁目 ⇒ 3桁 小計 6桁
         elif i == 4: 
-            m += ev * 1000000       # 4桁目 ⇒ 2桁 小計 8桁
+            m += ev * 1000000        # 4桁目 ⇒ 2桁 小計 8桁
         elif i == 3:
-            m += ev * 100000000     # 3桁目 ⇒ 3桁 小計 11桁
+            m += ev * 100000000      # 3桁目 ⇒ 3桁 小計 11桁
         elif i == 2:
-            m += ev * 100000000000  # 2桁目 ⇒ 2桁 小計 13桁
+            m += ev * 100000000000   # 2桁目 ⇒ 2桁 小計 13桁
+        elif i == 1:
+            m += ev * 10000000000000  # 1桁目 ⇒ 1桁 小計 14桁
+        elif i == 0:
+            m += ev * 100000000000000 # 0桁目 ⇒ 1桁 小計 15桁
         #fi
     #rof
-    m += n * 10000000000000  # industry ⇒ 2桁 小計 15桁
+    m += n * 1000000000000000  # industry ⇒ 2桁 小計 15桁
             
     return m
     
+
+def layerDecodeNum(numCode, maxDepth = 8):
+    # pdb.set_trace()
+    m = int(numCode)
+
+    industry = m // 1000000000000000
+    m -= industry * 1000000000000000
+    
+    layer = [ 0, 0, 0, 0, 0,   0, 0, 0, 0, 0 ]
+    
+    layer[0] = m // 100000000000000
+    m -= layer[0] * 100000000000000
+    layer[1] = m // 10000000000000
+    m -= layer[1] * 10000000000000
+    layer[2] = m // 100000000000
+    m -= layer[2] * 100000000000
+    layer[3] = m // 100000000
+    m -= layer[3] * 100000000
+    layer[4] = m // 1000000
+    m -= layer[4] * 1000000
+    layer[5] = m // 1000
+    m -= layer[5] * 1000
+    layer[6] = m // 10
+    m -= layer[6] * 10
+    layer[7] = m
+    
+    return str(industry), layer
 
 
 def makeAccCodeAttr(db, tableName, industry, madeFlag):
@@ -88,7 +202,7 @@ def makeAccCodeAttr(db, tableName, industry, madeFlag):
     # Record_List を 加工し DB Table に upsert
     #
     # = +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=
-    global lastLevels, lastDepth, maxLevels
+    global lastLevels, lastDepth, maxLevels, numCodeList, dskCodeList
     # pdb.set_trace()
     
     # reset
@@ -154,10 +268,38 @@ def makeAccCodeAttr(db, tableName, industry, madeFlag):
         # pprint.pprint(lastLevels)
         pprint.pprint(maxLevels)
 
-        m = layerCode(industry, lastLevels, 8)
-        print(f"layerCode: {m}")
+        level_code = layerEncodeNum(industry, lastLevels, 8)
+        print(f"layerDecodeNum: {level_code}")
         
-        data["level_code"] = m
+        #  復元テスト
+        # pdb.set_trace()
+        indus, layer = layerDecodeNum(level_code, 8)
+        assert(indus == industry)
+        for i in range(0, len(layer)):
+            if not layer[i] == lastLevels[i]:
+                pdb.set_trace()
+            assert(layer[i] == lastLevels[i])
+        
+        assert not level_code in numCodeList
+        numCodeList.append(level_code)
+        
+        dskCode = layerEncodeDsk(industry, lastLevels, 8)
+        print(f"layerDecodeDsk: {dskCode}")
+        
+        # 復元テスト
+        d_indus, d_layer = layerDecodeDsk(dskCode, 8)
+        assert(d_indus == industry)
+        for i in range(0, len(d_layer)):
+            if not d_layer[i] == lastLevels[i]:
+                pdb.set_trace()
+            assert(d_layer[i] == lastLevels[i])
+        
+        assert not dskCode in dskCodeList
+        dskCodeList.append(dskCode)
+        
+        data["level_code"] = level_code
+        data["dsk_code"] = dskCode
+        
         # pprint.pprint(data)
 
         table.upsert(data, keys=[
@@ -193,6 +335,9 @@ if __name__ == '__main__':
         exit(1)
     # yrt
 
+    numCodeList = []    # reset
+    dskCodeList = []    # reset
+
     industry = db['industry']
     for data in industry:
         pprint.pprint(data)
@@ -211,8 +356,15 @@ if __name__ == '__main__':
             "max_level" : maxlevs,
         }        
     # rof
-    
-    print("done")
+
+    print("numCodeList:")
+    print(numCodeList)
+    print("dskCodeList:")
+    print(dskCodeList)
+    print("industryStruct:")
     pprint.pprint(industryStruct)
+    print("done")
+
+    
     
     exit(0)

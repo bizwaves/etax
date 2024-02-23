@@ -272,8 +272,6 @@ def readXlsToTable(db, spec_name, variation, version, tableName, madeFlag):
             # fi
         # for
 
-        data["jis_code"] = ""           # 【ペンディング】jis-code table へのリンク ※検討中だが、とりあえず空欄を作っておく
-
         # 元出処（Unique Key Fields）
         data["spec_name"] = spec_name
         data["spec_variation"] = variation

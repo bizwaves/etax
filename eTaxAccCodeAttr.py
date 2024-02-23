@@ -27,36 +27,36 @@ lastDepth = 0   # 最後に処理した depth
 
 industryStruct = {}
 
-#= industryStruct メモ   
-#                             2   3    2   3     2   1 　　　　　10進桁数
-#                             1   2    3   4     5   6 
-#                             ↓   ↓    ↓   ↓     ↓   ↓
-#                       0  1  2   3    4   5     6   7  8  9
-# {'10': {'max_level': [2, 3, 18, 131, 64, 131,  39, 6, 0, 0]},
-#  '11': {'max_level': [2, 2, 13, 22,  14, 8,    2,  0, 0, 0]},
-#  '12': {'max_level': [2, 2, 8,  31,  18, 2,    4,  0, 0, 0]},
-#  '13': {'max_level': [2, 2, 8,  31,  18, 2,    4,  0, 0, 0]},
-#  '14': {'max_level': [2, 2, 11, 10,  13, 10,   4,  0, 0, 0]},
-#  '15': {'max_level': [2, 2, 13, 9,   19, 8,    2,  0, 0, 0]},
-#  '16': {'max_level': [2, 2, 9,  26,  19, 5,    1,  0, 0, 0]},
-#  '17': {'max_level': [2, 2, 8,  20,  21, 3,    1,  0, 0, 0]},
-#  '18': {'max_level': [2, 2, 18, 10,  18, 11,   8,  0, 0, 0]},
-#  '19': {'max_level': [2, 2, 19, 16,  15, 13,   4,  0, 0, 0]},
-#  '20': {'max_level': [2, 2, 13, 11,  20, 10,   11, 4, 0, 0]},
-#  '21': {'max_level': [2, 2, 11, 11,  17, 14,   20, 2, 0, 0]},
-#  '22': {'max_level': [2, 2, 15, 4,   25, 15,   2,  3, 0, 0]},
-#  '23': {'max_level': [2, 2, 20, 8,   18, 14,   3,  0, 0, 0]},
-#  '24': {'max_level': [2, 2, 16, 4,   14, 11,   8,  3, 0, 0]},
-#  '25': {'max_level': [2, 2, 12, 11,  12, 7,    2,  0, 0, 0]},
-#  '26': {'max_level': [2, 2, 15, 10,  14, 14,   3,  3, 0, 0]},
-#  '27': {'max_level': [2, 2, 11, 6,   15, 11,   4,  0, 0, 0]},
-#  '28': {'max_level': [2, 2, 10, 3,   11, 11,   4,  0, 0, 0]},
-#  '29': {'max_level': [2, 2, 10, 5,   14, 17,   4,  0, 0, 0]},
-#  '30': {'max_level': [2, 2, 11, 30,  25, 19,   4,  0, 0, 0]},
-#  '31': {'max_level': [2, 2, 13, 8,   25, 17,   11, 4, 0, 0]},
-#  '32': {'max_level': [2, 2, 20, 18,  48, 6,    0,  0, 0, 0]} }
-# #=
+#= 
+#                     0  1  2   3    4   5     6   7  8  9
+PrefixedindustryStruct = {
+ '10': {'max_level': [2, 3, 18, 131, 64, 131,  39, 6, 0, 0]},
+ '11': {'max_level': [2, 2, 13, 22,  14, 8,    2,  0, 0, 0]},
+ '12': {'max_level': [2, 2, 8,  31,  18, 2,    4,  0, 0, 0]},
+ '13': {'max_level': [2, 2, 8,  31,  18, 2,    4,  0, 0, 0]},
+ '14': {'max_level': [2, 2, 11, 10,  13, 10,   4,  0, 0, 0]},
+ '15': {'max_level': [2, 2, 13, 9,   19, 8,    2,  0, 0, 0]},
+ '16': {'max_level': [2, 2, 9,  26,  19, 5,    1,  0, 0, 0]},
+ '17': {'max_level': [2, 2, 8,  20,  21, 3,    1,  0, 0, 0]},
+ '18': {'max_level': [2, 2, 18, 10,  18, 11,   8,  0, 0, 0]},
+ '19': {'max_level': [2, 2, 19, 16,  15, 13,   4,  0, 0, 0]},
+ '20': {'max_level': [2, 2, 13, 11,  20, 10,   11, 4, 0, 0]},
+ '21': {'max_level': [2, 2, 11, 11,  17, 14,   20, 2, 0, 0]},
+ '22': {'max_level': [2, 2, 15, 4,   25, 15,   2,  3, 0, 0]},
+ '23': {'max_level': [2, 2, 20, 8,   18, 14,   3,  0, 0, 0]},
+ '24': {'max_level': [2, 2, 16, 4,   14, 11,   8,  3, 0, 0]},
+ '25': {'max_level': [2, 2, 12, 11,  12, 7,    2,  0, 0, 0]},
+ '26': {'max_level': [2, 2, 15, 10,  14, 14,   3,  3, 0, 0]},
+ '27': {'max_level': [2, 2, 11, 6,   15, 11,   4,  0, 0, 0]},
+ '28': {'max_level': [2, 2, 10, 3,   11, 11,   4,  0, 0, 0]},
+ '29': {'max_level': [2, 2, 10, 5,   14, 17,   4,  0, 0, 0]},
+ '30': {'max_level': [2, 2, 11, 30,  25, 19,   4,  0, 0, 0]},
+ '31': {'max_level': [2, 2, 13, 8,   25, 17,   11, 4, 0, 0]},
+ '32': {'max_level': [2, 2, 20, 18,  48, 6,    0,  0, 0, 0]} 
+ }
 
+industryCounts = {}
+   
 
 def layerEncodeDsk(industry, level, maxDepth = 8):
     #= layer情報 max_level から DSK コードを生成する
@@ -202,7 +202,7 @@ def makeAccCodeAttr(db, tableName, industry, madeFlag):
     # Record_List を 加工し DB Table に upsert
     #
     # = +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=
-    global lastLevels, lastDepth, maxLevels, numCodeList, dskCodeList
+    global lastLevels, lastDepth, maxLevels, numCodeList, dskCodeList, industryCounts, industryStruct, PrefixedindustryStruct
     # pdb.set_trace()
     
     # reset
@@ -300,6 +300,14 @@ def makeAccCodeAttr(db, tableName, industry, madeFlag):
         data["level_code"] = level_code
         data["dsk_code"] = dskCode
         
+        if not industry in industryCounts:
+            industryCounts[industry] = 1    # !! 1 からスタート
+        else:
+            industryCounts[industry] += 1
+        #fi
+        
+        data["indu_code"] = industryCounts[industry] # industry-code UI 上入力用の勘定科目コードとして利用予定
+        
         # pprint.pprint(data)
 
         table.upsert(data, keys=[
@@ -335,6 +343,7 @@ if __name__ == '__main__':
         exit(1)
     # yrt
 
+    industryCounts = {}
     numCodeList = []    # reset
     dskCodeList = []    # reset
 
